@@ -14,11 +14,21 @@ import {
 import { Todo } from './types/Todo';
 import { TodoList } from './components/TodoList';
 import { Footer } from './components/Footer';
+import { ErrorNotification } from './components/ErrorNotification';
 
 export enum FilterTypes {
   All,
   Active,
   Completed,
+}
+
+export enum ErrorMessage {
+  none = '',
+  load = 'Unable to load todos',
+  emptyTitle = 'Title should not be empty',
+  add = 'Unable to add a todo',
+  delete = 'Unable to delete a todo',
+  update = 'Unable to update a todo',
 }
 
 function filteringTodos(array: Todo[], filterType: FilterTypes) {
@@ -42,20 +52,37 @@ export const App: React.FC = () => {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [newTodoTitle, setNewTodoTitle] = useState<string>('');
   const [filterType, setFilterType] = useState<FilterTypes>(FilterTypes.All);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<ErrorMessage>(
+    ErrorMessage.none,
+  );
 
   useEffect(() => {
+    setErrorMessage(ErrorMessage.none);
+
     getTodos()
       .then(setTodos)
-      .catch(() => alert('Error while setting todos!'));
+      .catch(() => setErrorMessage(ErrorMessage.load))
+      .finally(() => setIsLoading(false));
   }, []);
 
   const deleteSelectedTodo = (targetId: number) => {
-    deleteTodo(targetId);
+    setErrorMessage(ErrorMessage.none);
     setTodos(currentTodos => currentTodos.filter(todo => todo.id !== targetId));
+
+    deleteTodo(targetId)
+      .catch(() => {
+        setTodos(todos);
+        setErrorMessage(ErrorMessage.delete);
+      })
+      .finally(() => setIsLoading(false));
   };
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+
+    setErrorMessage(ErrorMessage.none);
 
     const pushingNewTodo: Omit<Todo, 'id'> = {
       userId: USER_ID,
@@ -64,13 +91,16 @@ export const App: React.FC = () => {
     };
 
     if (newTodoTitle) {
-      addTodo(pushingNewTodo)
+      return addTodo(pushingNewTodo)
         .then(newTodo => setTodos(currentTodos => [...currentTodos, newTodo]))
-        .catch(() => alert('Error while adding a todo!'))
-        .finally(() => setNewTodoTitle(''));
+        .catch(() => setErrorMessage(ErrorMessage.add))
+        .finally(() => {
+          setIsLoading(false);
+          setNewTodoTitle('');
+        });
     }
 
-    return;
+    return setErrorMessage(ErrorMessage.emptyTitle);
   };
 
   const isTodosEmpty = todos.length === 0;
@@ -100,11 +130,18 @@ export const App: React.FC = () => {
           return updatingTodos;
         }),
       )
-      .catch(() => alert('Error while updating todo!'));
+      .catch(() => setErrorMessage(ErrorMessage.update))
+      .finally(() => setIsLoading(false));
   };
 
   if (!USER_ID) {
     return <UserWarning />;
+  }
+
+  if (errorMessage !== ErrorMessage.none) {
+    setTimeout(() => {
+      setErrorMessage(ErrorMessage.none);
+    }, 3000);
   }
 
   return (
@@ -150,23 +187,7 @@ export const App: React.FC = () => {
         )}
       </div>
 
-      {/* DON'T use conditional rendering to hide the notification */}
-      {/* Add the 'hidden' class to hide the message smoothly */}
-      {/* <div
-        data-cy="ErrorNotification"
-        className="notification is-danger is-light has-text-weight-normal"
-      >
-        <button data-cy="HideErrorButton" type="button" className="delete" />
-        Unable to load todos
-        <br />
-        Title should not be empty
-        <br />
-        Unable to add a todo
-        <br />
-        Unable to delete a todo
-        <br />
-        Unable to update a todo
-      </div> */}
+      <ErrorNotification errorMessage={errorMessage} />
     </div>
   );
 };
