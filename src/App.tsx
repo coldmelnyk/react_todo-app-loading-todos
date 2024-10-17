@@ -1,4 +1,4 @@
-import React, { FormEvent, useEffect, useState } from 'react';
+import React, { FormEvent, useEffect, useMemo, useState } from 'react';
 import { UserWarning } from './UserWarning';
 
 import {
@@ -52,7 +52,7 @@ export const App: React.FC = () => {
     ErrorMessage.none,
   );
 
-  useEffect(() => {
+  const uploadingTodos = useMemo(() => {
     setErrorMessage(ErrorMessage.none);
     setIsLoading(true);
 
@@ -105,7 +105,10 @@ export const App: React.FC = () => {
 
   const isAllTodosCompleted = todos.every(todo => todo.completed);
 
-  const filteredTodos = filteringTodos(todos, filterType);
+  const filteredTodos = useMemo(
+    () => filteringTodos(todos, filterType),
+    [todos, filterType],
+  );
 
   const handleTodoStatus = (todo: Todo) => {
     setIsLoading(true);
@@ -133,6 +136,8 @@ export const App: React.FC = () => {
       .catch(() => setErrorMessage(ErrorMessage.update))
       .finally(() => setIsLoading(false));
   };
+
+  useEffect(() => uploadingTodos);
 
   if (!USER_ID) {
     return <UserWarning />;
