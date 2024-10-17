@@ -1,8 +1,5 @@
-/* eslint-disable jsx-a11y/label-has-associated-control */
-/* eslint-disable jsx-a11y/control-has-associated-label */
 import React, { FormEvent, useEffect, useState } from 'react';
 import { UserWarning } from './UserWarning';
-import cn from 'classnames';
 
 import {
   addTodo,
@@ -11,15 +8,18 @@ import {
   updateTodoStatus,
   USER_ID,
 } from './api/todos';
-import { Todo } from './types/Todo';
+
 import { TodoList } from './components/TodoList';
 import { Footer } from './components/Footer';
 import { ErrorNotification } from './components/ErrorNotification';
+import { Header } from './components/Header';
+
+import { Todo } from './types/Todo';
 
 export enum FilterTypes {
-  All,
-  Active,
-  Completed,
+  All = 'All',
+  Active = 'Active',
+  Completed = 'Completed',
 }
 
 export enum ErrorMessage {
@@ -31,21 +31,15 @@ export enum ErrorMessage {
   update = 'Unable to update a todo',
 }
 
-function filteringTodos(array: Todo[], filterType: FilterTypes) {
-  let arrayCopy = [...array];
-
+function filteringTodos(arrayOfTodos: Todo[], filterType: FilterTypes) {
   switch (filterType) {
     case FilterTypes.Active:
-      arrayCopy = arrayCopy.filter(item => !item.completed);
-      break;
+      return arrayOfTodos.filter(item => !item.completed);
     case FilterTypes.Completed:
-      arrayCopy = arrayCopy.filter(item => item.completed);
-      break;
+      return arrayOfTodos.filter(item => item.completed);
     case FilterTypes.All:
-      return array;
+      return arrayOfTodos;
   }
-
-  return arrayCopy;
 }
 
 export const App: React.FC = () => {
@@ -53,13 +47,14 @@ export const App: React.FC = () => {
   const [newTodoTitle, setNewTodoTitle] = useState<string>('');
   const [filterType, setFilterType] = useState<FilterTypes>(FilterTypes.All);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<ErrorMessage>(
     ErrorMessage.none,
   );
 
   useEffect(() => {
     setErrorMessage(ErrorMessage.none);
+    setIsLoading(true);
 
     getTodos()
       .then(setTodos)
@@ -69,6 +64,7 @@ export const App: React.FC = () => {
 
   const deleteSelectedTodo = (targetId: number) => {
     setErrorMessage(ErrorMessage.none);
+    setIsLoading(true);
     setTodos(currentTodos => currentTodos.filter(todo => todo.id !== targetId));
 
     deleteTodo(targetId)
@@ -91,6 +87,8 @@ export const App: React.FC = () => {
     };
 
     if (newTodoTitle) {
+      setIsLoading(true);
+
       return addTodo(pushingNewTodo)
         .then(newTodo => setTodos(currentTodos => [...currentTodos, newTodo]))
         .catch(() => setErrorMessage(ErrorMessage.add))
@@ -110,6 +108,8 @@ export const App: React.FC = () => {
   const filteredTodos = filteringTodos(todos, filterType);
 
   const handleTodoStatus = (todo: Todo) => {
+    setIsLoading(true);
+
     const todoWithNewStatus: Todo = {
       id: todo.id,
       userId: USER_ID,
@@ -138,39 +138,17 @@ export const App: React.FC = () => {
     return <UserWarning />;
   }
 
-  if (errorMessage !== ErrorMessage.none) {
-    setTimeout(() => {
-      setErrorMessage(ErrorMessage.none);
-    }, 3000);
-  }
-
   return (
     <div className="todoapp">
       <h1 className="todoapp__title">todos</h1>
 
       <div className="todoapp__content">
-        <header className="todoapp__header">
-          <button
-            type="button"
-            className={cn('todoapp__toggle-all', {
-              active: isAllTodosCompleted,
-            })}
-            data-cy="ToggleAllButton"
-          />
-
-          <form onSubmit={event => handleSubmit(event)}>
-            <input
-              value={newTodoTitle}
-              onChange={event =>
-                setNewTodoTitle(event.target.value.trimStart())
-              }
-              data-cy="NewTodoField"
-              type="text"
-              className="todoapp__new-todo"
-              placeholder="What needs to be done?"
-            />
-          </form>
-        </header>
+        <Header
+          isAllTodosCompleted={isAllTodosCompleted}
+          newTodoTitle={newTodoTitle}
+          onHeaderSubmit={handleSubmit}
+          handleTodoTitle={setNewTodoTitle}
+        />
 
         <TodoList
           todos={filteredTodos}
@@ -187,7 +165,10 @@ export const App: React.FC = () => {
         )}
       </div>
 
-      <ErrorNotification errorMessage={errorMessage} />
+      <ErrorNotification
+        errorMessage={errorMessage}
+        handleError={setErrorMessage}
+      />
     </div>
   );
 };
